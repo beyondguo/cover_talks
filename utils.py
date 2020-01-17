@@ -17,7 +17,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score,precision_score,recall_score,f1_score
-from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import roc_curve, auc 
 # ===================preprocessing:==============================
 def remove_punctuations(text):
     return re.sub('[，。：；’‘“”？！、,.!?\'\"\n\t]','',text)
@@ -134,7 +134,7 @@ def img2array(img_path,img_h,img_w):
 
 def pos_neg_split(pos_size):
     # 根据正样本比例来划分正负样本。
-    covers = os.listdir('covers')
+    covers = os.listdir('../covers')
     chinese_books = ['中国books/'+name for name in os.listdir('../books/中国books')]
     foreign_books = ['外国books/'+name for name in os.listdir('../books/外国books')]
     books = foreign_books+chinese_books
@@ -158,10 +158,17 @@ def pos_neg_split(pos_size):
     return list(set(pos_list)),list(set(neg_list)),book_dict
 
 
-def test_results(model,y_test,inputs_test,plot_roc=False):
+def test_results(model,y_test,inputs_test,framework,plot_roc=False):
     y_true = y_test
-    y_prob = model.predict(inputs_test)
-    y_predict = [1 if y>0.5 else 0 for y in y_prob]
+    if framework == 'keras':
+        y_prob = model.predict(inputs_test)
+        y_predict = [1 if y>0.5 else 0 for y in y_prob]
+    elif framework == 'sklearn':
+        y_prob = model.predict_proba(inputs_test)[:,1]
+        y_predict = model.predict(inputs_test)
+    else:
+        print('Wrong framework! Must be keras or sklearn.')
+        return 0
     
     # accuracy,precision,recall,f1
     print('accuracy:',accuracy_score(y_true,y_predict))

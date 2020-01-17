@@ -18,10 +18,10 @@ from keras.utils import to_categorical
 # ============== 模型搭建：=======
 
 def mp_att_mm(vocab_size,maxlen,wvdim,embedding_matrix,img_h,img_w):# 192,128
-	"""
+    """
 	mp，即multi-position，这里指对不同position进行attention。
-	"""
-    # 标题部分：
+    """
+    # 标题部分
     title_input = Input((maxlen,))
     title_emb = Embedding(vocab_size+1,wvdim,input_length=maxlen,weights=[embedding_matrix])(title_input)
     x = LSTM(64,return_sequences=True)(title_emb)
@@ -65,7 +65,7 @@ def mp_att_mm(vocab_size,maxlen,wvdim,embedding_matrix,img_h,img_w):# 192,128
 
 
 def mp_att_mm_2(vocab_size,maxlen,wvdim,embedding_matrix,img_h,img_w):# 192,128
-	"""
+    """
 	mp，即multi-position，这里指对不同position进行attention。
 	"""
     # 标题部分：
@@ -106,8 +106,8 @@ def mp_att_mm_2(vocab_size,maxlen,wvdim,embedding_matrix,img_h,img_w):# 192,128
     model.compile(optimizer='adam',loss='binary_crossentropy',metrics=['accuracy'])
     return model
 
-def mv_att_mm(vocab_size,maxlen,wvdim,embedding_matrix,img_h,img_w,vgg_layer,shrink_rate,filters):
-	"""
+def mv_att_mm(vocab_size,maxlen,wvdim,embedding_matrix,img_h,img_w,vgg_layer,shrink_rate,filters,otherinfo_dim=None):
+    """
 	mv，即multi-view，这里指对不同通道的activation进行attention。
 	这里可以自定义取出VGG19的哪一层，
 	实验发现，取比较浅的层，效果依然很好，而训练速度可以大大提高
@@ -143,10 +143,79 @@ def mv_att_mm(vocab_size,maxlen,wvdim,embedding_matrix,img_h,img_w,vgg_layer,shr
     att_mv_cat = Lambda(lambda pair:tf.multiply(pair[0],pair[1]),name='att_mv_cat')([att_scores,mv_cat])#[None, 512, 64]
     att_mv_vec = Lambda(lambda s:K.sum(s,axis=1),name='att_mv_vec')(att_mv_cat) # [None,64]
     
+    inputs = [img_base_model.input,title_input]
+    if otherinfo_dim:
+        other_input = Input((otherinfo_dim,))
+        dense_input = Dense(64,activation='relu')(other_input)
+        att_mv_vec = Concatenate()([att_mv_vec,dense_input])
+        inputs = [img_base_model.input,title_input,other_input]
 
-    prediction = Dense(1,activation='sigmoid')(att_mv_vec)
+    fusion = Dense(32,activation='relu')(att_mv_vec)
+    prediction = Dense(1,activation='sigmoid')(fusion)
     
-    model = Model(inputs=[img_base_model.input,title_input],outputs=[prediction])
+    model = Model(inputs=inputs,outputs=[prediction])
     model.compile(optimizer='adam',loss='binary_crossentropy',metrics=['accuracy'])
     return model
+
+
+def simple_cat_m(vocab_size,maxlen,wvdim,embedding_matrix,img_h,img_w,vgg_layer,shrink_rate,filters,otherinfo_dim=None,selected_features=None):
+    """
+	mv，即multi-view，这里指对不同通道的activation进行attention。
+	这里可以自定义取出VGG19的哪一层，
+	实验发现，取比较浅的层，效果依然很好，而训练速度可以大大提高
+	"""
+    my_dim = 1
+    # 标题部分：
+    title_input = Input((maxlen,))
+    title_emb = Embedding(vocab_size+1,wvdim,input_length=maxlen,weights=[embedding_matrix])(title_input)
+    x = LSTM(64,return_sequences=True)(title_emb)
+    title_vec = LSTM(my_dim)(x)
+    
+    # 图像部分：
+    img_base_model = VGG19(weights='imagenet',include_top=False,input_shape=(img_h,img_w,3))
+    for layer in img_base_model.layers:
+        layer.trainable = False
+    
+    '''
+    将VGG的中间某层的各通道提出来，而不是拿最后的FC层出来的向量做attention操作
+    '''
+    
+    mid_output = img_base_model.get_layer(vgg_layer).output
+    x = GlobalMaxPooling2D()(mid_output) 
+    x = Dense(32,activation='relu')(x)
+    img_vec = Dense(4,activation='tanh')(x)
+    
+#    cat_vec = Concatenate()([img_vec,title_vec])
+#    
+#    inputs = [img_base_model.input,title_input]
+
+    # 此时，为了查看每一种特征的作用，我们用列表的方式输入
+    other_inputs = []
+    other_vecs = []
+    for dim in otherinfo_dim:
+        other_input = Input((dim,))
+        other_inputs.append(other_input)
+        other_vec = Dense(my_dim,activation='sigmoid')(other_input)
+        other_vecs.append(other_vec)
+        
+    
+    cat_vec = Concatenate()([img_vec,title_vec]+other_vecs)
+    inputs = [img_base_model.input,title_input]+other_inputs
+
+#    fusion = Dense(32,activation='relu')(cat_vec)
+    prediction = Dense(1,activation='sigmoid',name='lr')(cat_vec)
+    
+    model = Model(inputs=inputs,outputs=[prediction])
+    model.compile(optimizer='adam',loss='binary_crossentropy',metrics=['accuracy'])
+    return model
+
+
+
+
+
+
+
+
+
+
 
