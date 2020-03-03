@@ -158,7 +158,7 @@ def mv_att_mm(vocab_size,maxlen,wvdim,embedding_matrix,img_h,img_w,vgg_layer,shr
     return model
 
 
-def simple_cat_m(vocab_size,maxlen,wvdim,embedding_matrix,img_h,img_w,vgg_layer,shrink_rate,filters,otherinfo_dim=None,selected_features=None):
+def simple_cat_m(vocab_size,maxlen,wvdim,embedding_matrix,img_h,img_w,vgg_layer,shrink_rate,filters,otherinfo_dim=None):
     """
 	mv，即multi-view，这里指对不同通道的activation进行attention。
 	这里可以自定义取出VGG19的哪一层，
@@ -185,25 +185,25 @@ def simple_cat_m(vocab_size,maxlen,wvdim,embedding_matrix,img_h,img_w,vgg_layer,
     x = Dense(32,activation='relu')(x)
     img_vec = Dense(4,activation='tanh')(x)
     
-#    cat_vec = Concatenate()([img_vec,title_vec])
-#    
-#    inputs = [img_base_model.input,title_input]
-
-    # 此时，为了查看每一种特征的作用，我们用列表的方式输入
-    other_inputs = []
-    other_vecs = []
-    for dim in otherinfo_dim:
-        other_input = Input((dim,))
-        other_inputs.append(other_input)
-        other_vec = Dense(my_dim,activation='sigmoid')(other_input)
-        other_vecs.append(other_vec)
-        
+    cat_vec = Concatenate()([img_vec,title_vec])
     
-    cat_vec = Concatenate()([img_vec,title_vec]+other_vecs)
-    inputs = [img_base_model.input,title_input]+other_inputs
+    inputs = [img_base_model.input,title_input]
+#
+#    # 此时，为了查看每一种特征的作用，我们用列表的方式输入
+#    other_inputs = []
+#    other_vecs = []
+#    if not otherinfo_dim:
+#        for dim in otherinfo_dim:
+#            other_input = Input((dim,))
+#            other_inputs.append(other_input)
+#            other_vec = Dense(my_dim,activation='sigmoid')(other_input)
+#            other_vecs.append(other_vec)
+#        
+#        cat_vec = Concatenate()([img_vec,title_vec]+other_vecs)
+#        inputs = [img_base_model.input,title_input]+other_inputs
 
-#    fusion = Dense(32,activation='relu')(cat_vec)
-    prediction = Dense(1,activation='sigmoid',name='lr')(cat_vec)
+    fusion = Dense(32,activation='relu')(cat_vec)
+    prediction = Dense(1,activation='sigmoid',name='lr')(fusion)
     
     model = Model(inputs=inputs,outputs=[prediction])
     model.compile(optimizer='adam',loss='binary_crossentropy',metrics=['accuracy'])

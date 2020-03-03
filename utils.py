@@ -132,7 +132,7 @@ def img2array(img_path,img_h,img_w):
     new_img = new_img.resize((img_w,img_h)) # 长，宽
     return np.array(new_img)
 
-def pos_neg_split(pos_size):
+def pos_neg_split(pos_size,selected_books=None):
     # 根据正样本比例来划分正负样本。
     covers = os.listdir('../covers')
     chinese_books = ['中国books/'+name for name in os.listdir('../books/中国books')]
@@ -141,6 +141,8 @@ def pos_neg_split(pos_size):
     pos_list = []
     neg_list = []
     book_dict = {}
+    if selected_books:
+        books = selected_books
     for book in books:
         book_detail = pd.read_excel('../books/%s'%book,header=1)
         book_detail = book_detail.sort_values(by='年销',ascending=False)

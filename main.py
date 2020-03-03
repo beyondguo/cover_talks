@@ -21,7 +21,7 @@ from utils import fit_corpus,text2dix,create_embedding_matrix,pos_neg_split,img2
 img_h = 96*2
 img_w = 64*2
 # 正负样本的划分：
-pos_list,neg_list,book_dict = pos_neg_split(0.25)
+pos_list,neg_list,book_dict = pos_neg_split(0.25,selected_books=['外国books/傲慢与偏见.xls','外国books/悲惨世界.xls','外国books/呼啸山庄.xls'])
 
 
 #  把所有的表都合在一起，方便查询其他信息：
@@ -33,6 +33,7 @@ for book in all_books:
     table = pd.read_excel('../books/%s'%book,header=1)
     tables.append(table)
 big_table = pd.concat(tables)
+#big_table = pd.read_excel('../books/中国books/红楼梦.xls',header=1)
 
 
 # 把图片转化成数值：
@@ -72,7 +73,13 @@ X_title_orig = [book_dict[isbn] for isbn in X_isbns]
 X_title = text2dix(tokenizer,X_title_orig,maxlen=maxlen)
 
 
-
+##
+#from shutil import copy
+#for isbn in X_isbns:
+#    source_path = 'D:/PythonOK/图书封面影响/covers/%s.jpg'%isbn
+#    target_path = 'D:/PythonOK/图书封面影响/covers_subset'
+#    copy(source_path,target_path)
+##
 
 # 加载词向量模型，创建embedding matrix：
 wv_path = '../../wv/wikibaikeWV250/wikibaikewv250'
@@ -120,7 +127,7 @@ y_test = Y[train_size:]
 
 
 
-# ========= 训练模型 ==========
+# ========= 训练传统模型 ==========
 from scipy import sparse
 from sklearn.linear_model import LogisticRegression as LR
 from sklearn.svm import SVC
@@ -159,18 +166,18 @@ block4_conv1   shrink_rate = 64  filters = 256
 block3_conv1   shrink_rate = 16  filters = 256
 block2_conv1   shrink_rate = 4  filters = 128
 """
-mv_model = simple_cat_m(vocab_size,maxlen,wvdim,embedding_matrix,img_h,img_w,vgg_layer,shrink_rate,filters,[413,6]) # (192,128),(96,64)
+mv_model = simple_cat_m(vocab_size,maxlen,wvdim,embedding_matrix,img_h,img_w,vgg_layer,shrink_rate,filters) # (192,128),(96,64)
 for i in range(10):
-    mv_model.fit([X_img_train,X_title_train,X_pub_train,X_price_train],y_train,batch_size=32,epochs=1)
-    test_results(mv_model,y_test,[X_img_test,X_title_test,X_pub_test,X_price_test],'keras')
+    mv_model.fit([X_img_train,X_title_train],y_train,batch_size=32,epochs=1)
+    test_results(mv_model,y_test,[X_img_test,X_title_test],'keras')
 
  
 # 实在想看看显著性水平，也没办法，使用上面的模型，作为因子提取器，然后调用统计模型来计算：
-factor_model = Model(inputs=mv_model.input,outputs=[mv_model.get_layer('concatenate_14').output])
-import statsmodels.api as sm
-factors = factor_model.predict([X_img_test,X_title_test,X_pub_test,X_price_test])
-est = sm.OLS(y_test, factors)
-res = est.fit()
+#factor_model = Model(inputs=mv_model.input,outputs=[mv_model.get_layer('concatenate_14').output])
+#import statsmodels.api as sm
+#factors = factor_model.predict([X_img_test,X_title_test,X_pub_test,X_price_test])
+#est = sm.OLS(y_test, factors)
+#res = est.fit()
 
     
 # ===============探索attention可解释性：========================
