@@ -210,6 +210,34 @@ def simple_cat_m(vocab_size,maxlen,wvdim,embedding_matrix,img_h,img_w,vgg_layer,
     return model
 
 
+def all_cat_model(vocab_size,maxlen,wvdim,embedding_matrix):
+    """
+    mv，即multi-view，这里指对不同通道的activation进行attention。
+    这里可以自定义取出VGG19的哪一层，
+    实验发现，取比较浅的层，效果依然很好，而训练速度可以大大提高
+    """
+    my_dim = 32
+    # 标题部分：
+    title_input = Input((maxlen,))
+    title_emb = Embedding(vocab_size+1,wvdim,input_length=maxlen,weights=[embedding_matrix])(title_input)
+    x = LSTM(64,return_sequences=True)(title_emb)
+    title_vec = LSTM(my_dim)(x)
+    
+    # 图像颜色部分：
+    colors_input = Input((768,)) # 256*3
+    colors_vec = Dense(my_dim,activation='tanh')(colors_input)
+
+    # 混合：
+    cat_vec = Concatenate()([colors_vec,title_vec])
+    fusion = Dense(32,activation='relu')(cat_vec)
+    prediction = Dense(1,activation='sigmoid',name='lr')(fusion)
+
+    inputs = [title_input,colors_input]
+    model = Model(inputs=inputs,outputs=[prediction])
+    model.compile(optimizer='adam',loss='binary_crossentropy',metrics=['accuracy'])
+    return model
+
+
 
 
 
